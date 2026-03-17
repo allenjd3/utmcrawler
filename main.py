@@ -19,11 +19,11 @@ def normalize(url: str) -> str:
     return parsed._replace(fragment="", path=path).geturl()
 
 
-async def fetch(session: aiohttp.ClientSession, url: str) -> str | None:
+async def fetch(session: aiohttp.ClientSession, url: str) -> tuple[str, str] | None:
     try:
         async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
             if resp.status == 200 and "text/html" in resp.headers.get("Content-Type", ""):
-                return await resp.text()
+                return str(resp.url), await resp.text()
     except Exception:
         pass
     return None
@@ -54,26 +54,30 @@ async def crawl(start_url: str) -> dict[str, list[str]]:
 
             results = await asyncio.gather(*(fetch(session, u) for u in batch))
 
-            for page_url, html in zip(batch, results):
-                if html is None:
+            for _, result in zip(batch, results):
+                if result is None:
+                    continue
+
+                final_url, html = result
+                if urlparse(final_url).netloc != base_domain:
                     continue
 
                 soup = BeautifulSoup(html, "html.parser")
                 for tag in soup.find_all("a", href=True):
                     href = tag["href"].strip()
-                    absolute = normalize(urljoin(page_url, href))
+                    absolute = normalize(urljoin(final_url, href))
                     parsed = urlparse(absolute)
 
                     if parsed.scheme not in ("http", "https"):
                         continue
 
                     if has_utm(absolute):
-                        utm_report[page_url].append(absolute)
+                        utm_report[final_url].append(absolute)
 
                     if parsed.netloc == base_domain and absolute not in visited:
                         await queue.put(absolute)
 
-                print(f"  crawled: {page_url} ({len(utm_report.get(page_url, []))} utm links found)")
+                print(f"  crawled: {final_url} ({len(utm_report.get(final_url, []))} utm links found)")
 
     return dict(utm_report)
 
