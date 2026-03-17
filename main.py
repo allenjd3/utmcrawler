@@ -72,7 +72,7 @@ async def crawl(start_url: str) -> dict[str, list[str]]:
                     if parsed.netloc == base_domain and absolute not in visited:
                         await queue.put(absolute)
 
-                print(f"  crawled: {page_url} ({len(utm_report[page_url])} utm links found)")
+                print(f"  crawled: {page_url} ({len(utm_report.get(page_url, []))} utm links found)")
 
     return dict(utm_report)
 
