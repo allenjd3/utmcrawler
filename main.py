@@ -15,7 +15,8 @@ def has_utm(url: str) -> bool:
 
 def normalize(url: str) -> str:
     parsed = urlparse(url)
-    return parsed._replace(fragment="").geturl()
+    path = parsed.path.rstrip("/") or "/"
+    return parsed._replace(fragment="", path=path).geturl()
 
 
 async def fetch(session: aiohttp.ClientSession, url: str) -> str | None:
